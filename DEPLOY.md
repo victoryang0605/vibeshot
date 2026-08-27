@@ -83,6 +83,20 @@
 
 ---
 
+## 日常更新（一键推送）
+
+代码改完后，在项目根目录执行一键推送（`git add/commit/push` 一步完成，推送后云托管流水线自动构建部署）：
+
+```bash
+push.bat                      # 自动提交（消息：update: 日期时间）
+push.bat "feat: 新增XX功能"    # 带提交说明（建议英文/数字，中文在 cmd 下可能乱码）
+# 或
+npm run push -- "提交说明"
+```
+
+> 推送走 SSH（`~/.ssh/config` 已配置 `ssh.github.com:443` + 专属密钥 `id_ed25519_github`），国内网络稳定。
+> 未提交的密钥/用户数据（`.env`、`data/`）已被 `.gitignore` 排除，不会进仓库。
+
 ## 常见问题
 
 | 现象 | 原因 / 处理 |
