@@ -16,6 +16,8 @@ App({
     statusBarHeight: 20,
     currentVibeResult: null,
     selectedTemplate: 'polaroid',
-    selectedFilter: 'none'
+    selectedFilter: 'none',
+    token: '',
+    user: null
   }
 });

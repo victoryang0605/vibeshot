@@ -24,8 +24,14 @@
      | `AGNES_API_KEY` | 你的 Agnes Key（国际站 Key 用国际节点） |
      | `AGNES_BASE_URL` | `https://apihub.agnes-ai.com/v1` |
      | `NODE_ENV` | `production` |
+     | `WX_APPID` | 小程序 AppID（如 `wxcf4f812d0feb5ae8`） |
+     | `WX_SECRET` | 小程序密钥（公众平台「开发管理 → 开发设置 → 小程序密钥」生成） |
 4. 点击「发布」，等构建完成，拿到**默认 HTTPS 域名**（形如 `https://vibeshot-api-xxxx.weixincloud.run`）。
 5. 验证：浏览器打开 `https://你的域名/api/health`，应返回 `{"status":"ok","provider":"agnes-ai"}`。
+
+> ⚠️ **微信登录与数据存储**：
+> - `WX_APPID` / `WX_SECRET` 用于「微信一键登录」（`wx.login` → `jscode2session`），**必须在服务端配置**，否则登录接口返回 500。
+> - 用户数据默认存服务端 `data/` 文件（开发/测试用）。**云托管容器重启会清空文件数据**，正式上线请改用数据库（云托管 MySQL 或云开发），需要我帮忙接入可以说一声。
 
 ### 方案 B：云服务器（腾讯云/阿里云轻量，成本几十元/月）
 

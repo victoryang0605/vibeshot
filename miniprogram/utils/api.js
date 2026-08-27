@@ -84,6 +84,66 @@ function generateAiPoster(params) {
   });
 }
 
+// 微信一键登录：wx.login 拿 code -> 后端换 openid 并自动注册，返回 token + user
+function wxLogin() {
+  return new Promise((resolve) => {
+    wx.login({
+      success: (loginRes) => {
+        if (!loginRes.code) {
+          wx.showToast({ title: '微信登录失败', icon: 'none' });
+          resolve(null);
+          return;
+        }
+        wx.request({
+          url: `${API_BASE}/api/auth/login`,
+          method: 'POST',
+          data: { code: loginRes.code },
+          header: { 'content-type': 'application/json' },
+          timeout: 30000,
+          success: (res) => {
+            if (res.statusCode === 200 && res.data && res.data.token) {
+              resolve(res.data);
+            } else {
+              const msg = (res.data && res.data.error) ? res.data.error : '登录失败';
+              wx.showToast({ title: msg, icon: 'none' });
+              resolve(null);
+            }
+          },
+          fail: () => {
+            wx.showToast({ title: '网络异常，登录失败', icon: 'none' });
+            resolve(null);
+          }
+        });
+      },
+      fail: () => {
+        wx.showToast({ title: '微信登录失败', icon: 'none' });
+        resolve(null);
+      }
+    });
+  });
+}
+
+// 更新用户资料（昵称）
+function updateProfile(token, { nickName }) {
+  return new Promise((resolve) => {
+    wx.request({
+      url: `${API_BASE}/api/auth/profile`,
+      method: 'POST',
+      data: { nickName },
+      header: {
+        'content-type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      timeout: 30000,
+      success: (res) => {
+        if (res.statusCode === 200 && res.data) resolve(res.data.user);
+        else resolve(null);
+      },
+      fail: () => resolve(null)
+    });
+  });
+}
+
 function getFallbackData(photoTitle) {
   return {
     id: String(Date.now()),
@@ -130,5 +190,7 @@ function getFallbackData(photoTitle) {
 
 module.exports = {
   analyzePhotoVibe,
-  generateAiPoster
+  generateAiPoster,
+  wxLogin,
+  updateProfile
 };

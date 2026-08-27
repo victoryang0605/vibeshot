@@ -3,6 +3,7 @@
     "pages/index/index",
     "pages/studio/studio",
     "pages/poster/poster",
+    "pages/me/me",
     "pages/pro/pro"
   ],
   "window": {
@@ -25,8 +26,8 @@
         "selectedIconPath": "images/tab_camera_active.png"
       },
       {
-        "pagePath": "pages/pro/pro",
-        "text": "商业/VIP",
+        "pagePath": "pages/me/me",
+        "text": "我的",
         "iconPath": "images/tab_vip.png",
         "selectedIconPath": "images/tab_vip_active.png"
       }

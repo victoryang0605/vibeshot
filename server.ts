@@ -1,5 +1,7 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -8,6 +10,40 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ============================================================
+// 微信小程序登录配置
+// ------------------------------------------------------------
+// AppID: 小程序后台「开发管理 -> 开发设置」可见
+// Secret: 小程序后台「开发管理 -> 开发设置 -> 小程序密钥」生成
+// （Secret 是敏感信息，仅存服务端环境变量，绝不入库/进前端）
+// 用户数据默认存本地文件 data/（开发/测试用）；
+// 正式环境建议接数据库（云托管 MySQL / 云开发），避免容器重启丢数据。
+// ============================================================
+const WX_APPID = process.env.WX_APPID || '';
+const WX_SECRET = process.env.WX_SECRET || '';
+const DATA_DIR = path.join(process.cwd(), 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const TOKENS_FILE = path.join(DATA_DIR, 'tokens.json');
+
+function readJsonFile<T>(file: string, fallback: T): T {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf-8'));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJsonFile(file: string, data: unknown) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+// 从请求头解析 Bearer token
+function resolveToken(req: express.Request): string {
+  const auth = req.headers.authorization || '';
+  return auth.startsWith('Bearer ') ? auth.slice(7) : '';
+}
 
 // ============================================================
 // Agnes AI（免费全模态 API，OpenAI 兼容）配置
@@ -93,6 +129,88 @@ async function startServer() {
   // Health check API
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString(), provider: 'agnes-ai' });
+  });
+
+  // ============================================================
+  // 微信一键登录（wx.login code -> openid -> 自动注册/登录）
+  // ============================================================
+  app.post('/api/auth/login', async (req, res) => {
+    const { code } = req.body || {};
+    if (!code) return res.status(400).json({ error: '缺少微信登录 code' });
+    if (!WX_APPID || !WX_SECRET) {
+      return res.status(500).json({ error: '服务端未配置 WX_APPID / WX_SECRET' });
+    }
+
+    try {
+      // 用 code 向微信换 openid（官方接口）
+      const url =
+        `https://api.weixin.qq.com/sns/jscode2session` +
+        `?appid=${encodeURIComponent(WX_APPID)}` +
+        `&secret=${encodeURIComponent(WX_SECRET)}` +
+        `&js_code=${encodeURIComponent(code)}` +
+        `&grant_type=authorization_code`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      const data: any = await r.json();
+
+      if (!data.openid) {
+        return res.status(401).json({ error: `微信登录失败：${data.errcode || ''} ${data.errmsg || ''}` });
+      }
+
+      const openid: string = data.openid;
+      const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+      const now = Date.now();
+
+      // 自动注册：openid 不存在则创建用户
+      if (!users[openid]) {
+        users[openid] = {
+          openid,
+          nickName: '微信用户',
+          avatarUrl: '',
+          createdAt: now,
+          lastLoginAt: now,
+        };
+      } else {
+        users[openid].lastLoginAt = now;
+      }
+      writeJsonFile(USERS_FILE, users);
+
+      // 签发登录令牌
+      const token = crypto.randomBytes(24).toString('hex');
+      const tokens = readJsonFile<Record<string, string>>(TOKENS_FILE, {});
+      tokens[token] = openid;
+      writeJsonFile(TOKENS_FILE, tokens);
+
+      res.json({ token, user: users[openid] });
+    } catch (err: any) {
+      console.error('微信登录错误:', err);
+      res.status(502).json({ error: String(err?.message || err) });
+    }
+  });
+
+  // 当前登录用户信息
+  app.get('/api/auth/me', (req, res) => {
+    const token = resolveToken(req);
+    const tokens = readJsonFile<Record<string, string>>(TOKENS_FILE, {});
+    const openid = tokens[token];
+    if (!openid) return res.status(401).json({ error: '未登录或登录已过期' });
+    const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+    res.json({ user: users[openid] || null });
+  });
+
+  // 更新用户资料（昵称等）
+  app.post('/api/auth/profile', (req, res) => {
+    const token = resolveToken(req);
+    const tokens = readJsonFile<Record<string, string>>(TOKENS_FILE, {});
+    const openid = tokens[token];
+    if (!openid) return res.status(401).json({ error: '未登录或登录已过期' });
+
+    const { nickName } = req.body || {};
+    const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+    if (users[openid] && typeof nickName === 'string' && nickName.trim()) {
+      users[openid].nickName = nickName.trim().slice(0, 24);
+      writeJsonFile(USERS_FILE, users);
+    }
+    res.json({ user: users[openid] });
   });
 
   // ============================================================

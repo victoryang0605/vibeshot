@@ -2,7 +2,7 @@
   "miniprogramRoot": "./",
   "projectname": "vibeshot-miniprogram",
   "description": "拾光半格 微信原生小程序",
-  "appid": "wxcf4f812d0feb5ae8",
+  "appid": "wxe0d1b844d49e085f",
   "setting": {
     "urlCheck": false,
     "es6": true,
@@ -48,5 +48,6 @@
     "tabIndent": "insertSpaces",
     "tabSize": 2
   },
-  "simulatorPluginLibVersion": {}
+  "simulatorPluginLibVersion": {},
+  "isGameTourist": false
 }

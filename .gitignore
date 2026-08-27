@@ -29,3 +29,6 @@ Thumbs.db
 
 # 本地临时文件（未被代码引用的截图）
 miniprogram/images/11.png
+
+# 运行时用户数据（含 openid，绝不提交）
+data/
