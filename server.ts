@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import https from 'https';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -43,6 +44,27 @@ function writeJsonFile(file: string, data: unknown) {
 function resolveToken(req: express.Request): string {
   const auth = req.headers.authorization || '';
   return auth.startsWith('Bearer ') ? auth.slice(7) : '';
+}
+
+// 微信官方接口专用 HTTPS 请求
+// 云托管容器访问 api.weixin.qq.com 走内网网关，证书链不被 Node 认可
+// （报错 self-signed certificate），故仅对该官方固定域名跳过证书验证。
+function wxRequestJson(url: string, timeoutMs = 20000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { rejectUnauthorized: false, timeout: timeoutMs }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body || '{}'));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error(`微信接口请求超时（${timeoutMs}ms）`)));
+    req.on('error', (e) => reject(e));
+  });
 }
 
 // ============================================================
@@ -142,15 +164,14 @@ async function startServer() {
     }
 
     try {
-      // 用 code 向微信换 openid（官方接口）
+      // 用 code 向微信换 openid（官方接口；走云托管内网网关，跳过证书验证）
       const url =
         `https://api.weixin.qq.com/sns/jscode2session` +
         `?appid=${encodeURIComponent(WX_APPID)}` +
         `&secret=${encodeURIComponent(WX_SECRET)}` +
         `&js_code=${encodeURIComponent(code)}` +
         `&grant_type=authorization_code`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
-      const data: any = await r.json();
+      const data: any = await wxRequestJson(url);
 
       if (!data.openid) {
         return res.status(401).json({ error: `微信登录失败：${data.errcode || ''} ${data.errmsg || ''}` });
