@@ -182,8 +182,10 @@ async function startServer() {
 
       res.json({ token, user: users[openid] });
     } catch (err: any) {
-      console.error('微信登录错误:', err);
-      res.status(502).json({ error: String(err?.message || err) });
+      // undici 的 fetch 失败时 cause 含底层原因（DNS/证书/连接）
+      const cause = err?.cause?.message || err?.cause?.code || '';
+      console.error('微信登录错误:', err, '| cause:', cause);
+      res.status(502).json({ error: `微信服务连接失败：${cause || err?.message || '未知'}` });
     }
   });
 

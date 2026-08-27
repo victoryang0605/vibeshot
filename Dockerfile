@@ -4,6 +4,12 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# 安装 CA 根证书：slim 镜像可能缺失，会导致容器内 HTTPS 出站失败
+# （症状：Node fetch 报 "fetch failed"，微信登录 / Agnes 识图生图全部异常）
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 # 依赖使用国内 npm 镜像（npmmirror），避免直连 npm 官方源超时
 RUN npm config set registry https://registry.npmmirror.com
 
