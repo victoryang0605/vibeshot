@@ -10,6 +10,12 @@ const { PRESET_PHOTOS } = require('./presets.js');
 // ------------------------------------------------------------
 const API_BASE = 'https://shiguang-api-303051-10-1336030908.sh.run.tcloudbase.com';
 
+// 登录后自动带上 token，让后端把 AI 使用关联到用户（用于留存统计）
+function authHeader() {
+  const token = wx.getStorageSync('vibeshot_token');
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
 function analyzePhotoVibe({ imageBase64, photoTitle }) {
   return new Promise((resolve) => {
     wx.showLoading({ title: 'AI 萃取情绪色标...', mask: true });
@@ -22,7 +28,8 @@ function analyzePhotoVibe({ imageBase64, photoTitle }) {
         photoTitle: photoTitle || '随手拍日常'
       },
       header: {
-        'content-type': 'application/json'
+        'content-type': 'application/json',
+        ...authHeader()
       },
       timeout: 120000,
       success: (res) => {
@@ -61,7 +68,8 @@ function generateAiPoster(params) {
         usePhotoAsReference: !!params.usePhotoAsReference
       },
       header: {
-        'content-type': 'application/json'
+        'content-type': 'application/json',
+        ...authHeader()
       },
       timeout: 300000, // 生图耗时较长，最长 5 分钟
       success: (res) => {

@@ -46,6 +46,48 @@ function resolveToken(req: express.Request): string {
   return auth.startsWith('Bearer ') ? auth.slice(7) : '';
 }
 
+// ============================================================
+// 用户留存与使用统计（文件存储；正式环境建议换数据库）
+// ============================================================
+const STATS_FILE = path.join(DATA_DIR, 'stats.json');
+
+function todayStr(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+// 记录一次 AI 调用：带 token 则关联到用户，否则记为匿名
+function recordAiUsage(req: express.Request) {
+  const stats = readJsonFile<any>(STATS_FILE, { totalAiRequests: 0, anonymousAiRequests: 0, daily: {} });
+  stats.totalAiRequests = (stats.totalAiRequests || 0) + 1;
+  const today = todayStr();
+  stats.daily = stats.daily || {};
+  stats.daily[today] = (stats.daily[today] || 0) + 1;
+
+  const token = resolveToken(req);
+  if (token) {
+    const tokens = readJsonFile<Record<string, string>>(TOKENS_FILE, {});
+    const openid = tokens[token];
+    if (openid) {
+      const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+      if (users[openid]) {
+        users[openid].aiRequests = (users[openid].aiRequests || 0) + 1;
+        users[openid].lastAiAt = Date.now();
+        writeJsonFile(USERS_FILE, users);
+      } else {
+        stats.anonymousAiRequests = (stats.anonymousAiRequests || 0) + 1;
+      }
+    } else {
+      stats.anonymousAiRequests = (stats.anonymousAiRequests || 0) + 1;
+    }
+  } else {
+    stats.anonymousAiRequests = (stats.anonymousAiRequests || 0) + 1;
+  }
+  writeJsonFile(STATS_FILE, stats);
+}
+
 // 微信官方接口专用 HTTPS 请求
 // 云托管容器访问 api.weixin.qq.com 走内网网关，证书链不被 Node 认可
 // （报错 self-signed certificate），故仅对该官方固定域名跳过证书验证。
@@ -237,6 +279,42 @@ async function startServer() {
   });
 
   // ============================================================
+  // 使用统计（开发者视角：跟踪有多少人使用）
+  // ============================================================
+  app.get('/api/stats', (req, res) => {
+    const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+    const stats = readJsonFile<any>(STATS_FILE, { totalAiRequests: 0, anonymousAiRequests: 0, daily: {} });
+    const now = Date.now();
+    const DAY = 86400000;
+    const today = todayStr();
+
+    const userList = Object.values(users);
+    const totalUsers = userList.length;
+    const newUsersToday = userList.filter((u: any) => u.createdAt && new Date(u.createdAt).toISOString().slice(0, 10) === today).length;
+    const active1d = userList.filter((u: any) => u.lastLoginAt && now - u.lastLoginAt < DAY).length;
+    const active7d = userList.filter((u: any) => u.lastLoginAt && now - u.lastLoginAt < 7 * DAY).length;
+
+    res.json({
+      updatedAt: new Date().toISOString(),
+      totalUsers,
+      newUsersToday,
+      activeUsers1d: active1d,
+      activeUsers7d: active7d,
+      totalAiRequests: stats.totalAiRequests || 0,
+      anonymousAiRequests: stats.anonymousAiRequests || 0,
+      aiRequestsToday: (stats.daily || {})[today] || 0,
+    });
+  });
+
+  // 用户明细导出（开发者备份用；含 openid，注意保管）
+  app.get('/api/stats/export', (req, res) => {
+    const users = readJsonFile<Record<string, any>>(USERS_FILE, {});
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="vibeshot-users.json"');
+    res.json(Object.values(users));
+  });
+
+  // ============================================================
   // 拾光半格 AI 情绪色号 & 电影台词分析（识图）
   // 由 Google Gemini 迁移至 Agnes AI（agnes-2.5-flash, 免费）
   // ============================================================
@@ -340,6 +418,7 @@ async function startServer() {
 
   // 照片识图分析：照片 + 提示词 -> 结构化 JSON（情绪色号 / 台词 / 情绪DNA）
   app.post('/api/vibeshot/analyze', async (req, res) => {
+    recordAiUsage(req); // 记录一次 AI 调用（带 token 关联用户）
     const { imageBase64, mimeType, photoTitle, stylePreference } = req.body;
 
     if (!AGNES_API_KEY) {
@@ -386,6 +465,7 @@ async function startServer() {
   // Agnes Image 2.1 Flash（agnes-image-2.1-flash, 免费）
   // ============================================================
   app.post('/api/vibeshot/generate-image', async (req, res) => {
+    recordAiUsage(req); // 记录一次 AI 调用（带 token 关联用户）
     const {
       prompt,
       imageBase64,     // 可选：参考照片（Data URI 或裸 base64）
