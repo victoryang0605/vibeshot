@@ -1,0 +1,11 @@
+node_modules/
+dist/
+deploy/
+.npm-cache/
+agnes-research/
+miniprogram/
+assets/
+*.log
+.env
+.env.local
+.git/

@@ -1,0 +1,27 @@
+<!-- pages/poster/poster.wxml -->
+<view class="poster-page">
+  <view class="preview-header">
+    <view class="badge-gold">✦ 300 DPI 超清海报已渲染就绪</view>
+    <view class="preview-tip">长按可发送给好友，或点击下方直接保存相册</view>
+  </view>
+
+  <!-- 微信原生 Canvas 2D 绘图组件 (离屏或可见绘制) -->
+  <view class="canvas-box">
+    <canvas type="2d" id="posterCanvas" class="poster-canvas"></canvas>
+  </view>
+
+  <!-- 预览生成后的真实图片 -->
+  <view class="image-preview-wrapper" wx:if="{{posterTempUrl}}">
+    <image class="poster-rendered-img" src="{{posterTempUrl}}" mode="widthFix" show-menu-by-longpress></image>
+  </view>
+
+  <view class="poster-action-group">
+    <button class="btn-primary full-btn" bindtap="saveToAlbum">
+      <text>💾 保存到微信相册 (高清)</text>
+    </button>
+    <button class="btn-secondary full-btn" open-type="share">
+      <text>📤 分享给好友 / 微信群</text>
+    </button>
+    <button class="back-link-btn" bindtap="navigateBack">返回工作室调整</button>
+  </view>
+</view>

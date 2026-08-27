@@ -1,0 +1,290 @@
+<!-- pages/studio/studio.wxml -->
+<view class="studio-container">
+  <!-- 顶部排版模板切换 Tabs -->
+  <scroll-view class="template-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+    <view 
+      class="template-tab {{currentTemplate === 'polaroid' ? 'tab-active' : ''}}"
+      bindtap="switchTemplate" 
+      data-tpl="polaroid"
+    >
+      <text class="tab-icon">📷</text>
+      <text>拍立得</text>
+    </view>
+    <view 
+      class="template-tab {{currentTemplate === 'vinyl' ? 'tab-active' : ''}}"
+      bindtap="switchTemplate" 
+      data-tpl="vinyl"
+    >
+      <text class="tab-icon">💿</text>
+      <text>黑胶唱片</text>
+    </view>
+    <view 
+      class="template-tab {{currentTemplate === 'magazine' ? 'tab-active' : ''}}"
+      bindtap="switchTemplate" 
+      data-tpl="magazine"
+    >
+      <text class="tab-icon">📰</text>
+      <text>小众杂志</text>
+    </view>
+    <view 
+      class="template-tab {{currentTemplate === 'cinema' ? 'tab-active' : ''}}"
+      bindtap="switchTemplate" 
+      data-tpl="cinema"
+    >
+      <text class="tab-icon">🎬</text>
+      <text>宽银幕</text>
+    </view>
+    <view 
+      class="template-tab {{currentTemplate === 'pantone' ? 'tab-active' : ''}}"
+      bindtap="switchTemplate" 
+      data-tpl="pantone"
+    >
+      <text class="tab-icon">🎨</text>
+      <text>潘通色卡</text>
+    </view>
+  </scroll-view>
+
+  <!-- 实时卡片渲染区 (用于截屏与分享) -->
+  <view class="card-stage-wrapper">
+    
+    <!-- 模板 1: 拍立得 (Polaroid) -->
+    <view wx:if="{{currentTemplate === 'polaroid'}}" class="polaroid-card">
+      <view class="polaroid-image-frame filter-{{currentFilter}}">
+        <image class="main-photo" src="{{imageUrl}}" mode="aspectFill"></image>
+        <view class="film-date-stamp font-mono">{{dateFormatted}}</view>
+      </view>
+      <view class="polaroid-bottom">
+        <view class="swatch-row">
+          <view 
+            class="swatch-dot" 
+            wx:for="{{vibeData.colorPalette}}" 
+            wx:key="hex" 
+            style="background-color: {{item.hex}};"
+          ></view>
+          <text class="swatch-code font-mono">{{vibeData.colorPalette[0].hex}}</text>
+        </view>
+        <view class="polaroid-quote font-serif">{{currentQuoteText}}</view>
+        <view class="polaroid-sub-quote font-mono">{{currentSubText}}</view>
+        <view class="polaroid-footer-row">
+          <text class="barcode-text font-mono">||| ||||| ||| |||||| 0.01cm</text>
+          <text class="brand-watermark font-mono">VIBESHOT NO.{{vibeData.id}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 模板 2: 黑胶唱片 (Vinyl) -->
+    <view wx:if="{{currentTemplate === 'vinyl'}}" class="vinyl-card">
+      <view class="vinyl-header">
+        <view class="vinyl-tag font-mono">VINYL SESSION · BGM 68 BPM</view>
+        <view class="vinyl-disc-mini"></view>
+      </view>
+      <view class="vinyl-cover-wrapper filter-{{currentFilter}}">
+        <image class="main-photo" src="{{imageUrl}}" mode="aspectFill"></image>
+        <view class="vinyl-groove-overlay"></view>
+      </view>
+      <view class="vinyl-meta">
+        <view class="track-title font-serif">{{vibeData.moodDNA.bgmTrack.title}}</view>
+        <view class="track-artist font-mono">{{vibeData.moodDNA.bgmTrack.artist}}</view>
+        <view class="vinyl-lyrics font-serif">“ {{currentQuoteText}} ”</view>
+        <view class="vinyl-color-strip">
+          <view 
+            class="strip-block" 
+            wx:for="{{vibeData.colorPalette}}" 
+            wx:key="hex" 
+            style="background-color: {{item.hex}}; flex: {{item.percentage}};"
+          ></view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 模板 3: 小众杂志 (Magazine) -->
+    <view wx:if="{{currentTemplate === 'magazine'}}" class="magazine-card">
+      <view class="mag-header">
+        <view class="mag-logo font-serif">VIBESHOT</view>
+        <view class="mag-sub font-mono">VOL.08 / AUTUMN EDIT</view>
+      </view>
+      <view class="mag-photo-box filter-{{currentFilter}}">
+        <image class="main-photo" src="{{imageUrl}}" mode="aspectFill"></image>
+        <view class="mag-headline font-serif">EFFORTLESS CHIC</view>
+      </view>
+      <view class="mag-body">
+        <view class="mag-editorial font-serif">{{currentQuoteText}}</view>
+        <view class="mag-cmyk-list font-mono">
+          <view class="mag-cmyk-item" wx:for="{{vibeData.colorPalette}}" wx:key="hex">
+            <view class="color-badge" style="background-color: {{item.hex}};"></view>
+            <text>{{item.name}} · {{item.cmyk}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 模板 4: 宽银幕 (Cinema) -->
+    <view wx:if="{{currentTemplate === 'cinema'}}" class="cinema-card">
+      <view class="cinema-top-bar font-mono">
+        <text class="rec-dot">● REC [04:03:19]</text>
+        <text>2.39:1 CINEMASCOPE</text>
+      </view>
+      <view class="cinema-frame filter-{{currentFilter}}">
+        <image class="main-photo" src="{{imageUrl}}" mode="aspectFill"></image>
+        <view class="cinema-subtitle-box">
+          <view class="cinema-chinese font-serif">{{currentQuoteText}}</view>
+          <view class="cinema-english font-mono">{{currentSubText}}</view>
+        </view>
+      </view>
+      <view class="cinema-bottom-bar font-mono">
+        <text>DIRECTED BY VIBESHOT</text>
+        <text>4K · 24 FPS · FILM GRAIN</text>
+      </view>
+    </view>
+
+    <!-- 模板 5: 潘通情绪色卡 (Pantone) -->
+    <view wx:if="{{currentTemplate === 'pantone'}}" class="pantone-card">
+      <view class="pantone-photo filter-{{currentFilter}}">
+        <image class="main-photo" src="{{imageUrl}}" mode="aspectFill"></image>
+      </view>
+      <view class="pantone-info">
+        <view class="pantone-title font-mono">PANTONE® EMOTION</view>
+        <view class="pantone-color-name font-serif">{{vibeData.colorPalette[0].name}}</view>
+        <view class="pantone-codes font-mono">
+          <text>HEX: {{vibeData.colorPalette[0].hex}}</text>
+          <text>{{vibeData.colorPalette[0].cmyk}}</text>
+        </view>
+        <view class="pantone-quote font-serif">{{currentQuoteText}}</view>
+      </view>
+    </view>
+
+  </view>
+
+  <!-- 文学台词流派切换 (王家卫 / 日系 / 法式 / 深夜) -->
+  <view class="control-panel glass-card">
+    <view class="panel-section-title">
+      <text class="sparkle">✒️</text>
+      <text>文学台词流派</text>
+    </view>
+    <view class="quote-style-grid">
+      <view 
+        class="quote-chip {{currentQuoteStyle === 'wongKarWai' ? 'chip-active' : ''}}"
+        bindtap="switchQuoteStyle" 
+        data-style="wongKarWai"
+      >
+        🎬 王家卫电影独白
+      </view>
+      <view 
+        class="quote-chip {{currentQuoteStyle === 'japaneseMinimal' ? 'chip-active' : ''}}"
+        bindtap="switchQuoteStyle" 
+        data-style="japaneseMinimal"
+      >
+        🍃 日系物哀极简
+      </view>
+      <view 
+        class="quote-chip {{currentQuoteStyle === 'frenchChic' ? 'chip-active' : ''}}"
+        bindtap="switchQuoteStyle" 
+        data-style="frenchChic"
+      >
+        🍷 法式小众杂志
+      </view>
+      <view 
+        class="quote-chip {{currentQuoteStyle === 'lateNight' ? 'chip-active' : ''}}"
+        bindtap="switchQuoteStyle" 
+        data-style="lateNight"
+      >
+        🌙 深夜网抑云解药
+      </view>
+    </view>
+
+    <!-- 台词直接编辑与润色 -->
+    <view class="custom-edit-box">
+      <view class="edit-label font-mono">自定义台词内容：</view>
+      <textarea 
+        class="quote-textarea font-serif" 
+        value="{{currentQuoteText}}" 
+        bindinput="onQuoteInput"
+        maxlength="200"
+      />
+    </view>
+
+    <!-- 胶片滤镜切换 -->
+    <view class="panel-section-title filter-title">
+      <text class="sparkle">🎞️</text>
+      <text>胶片调色滤镜</text>
+    </view>
+    <scroll-view class="filter-scroll" scroll-x enable-flex show-scrollbar="{{false}}">
+      <view 
+        class="filter-tab {{currentFilter === 'none' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="none"
+      >原图质感</view>
+      <view 
+        class="filter-tab {{currentFilter === 'grain' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="grain"
+      >胶片颗粒</view>
+      <view 
+        class="filter-tab {{currentFilter === 'warm' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="warm"
+      >暖阳复古</view>
+      <view 
+        class="filter-tab {{currentFilter === 'cold' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="cold"
+      >东京冷蓝</view>
+      <view 
+        class="filter-tab {{currentFilter === 'cyber' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="cyber"
+      >赛博霓虹</view>
+      <view 
+        class="filter-tab {{currentFilter === 'bw' ? 'filter-active' : ''}}"
+        bindtap="switchFilter" 
+        data-filter="bw"
+      >经典黑白</view>
+    </scroll-view>
+  </view>
+
+  <!-- 情绪通感 DNA 卡片 -->
+  <view class="dna-panel glass-card">
+    <view class="dna-title-row">
+      <text class="dna-title font-serif">🧬 画面通感与气味 DNA</text>
+      <text class="dna-badge font-mono">{{vibeData.moodDNA.bpmScore}}</text>
+    </view>
+    <view class="dna-row">
+      <text class="dna-label">情绪感知：</text>
+      <text class="dna-val">{{vibeData.moodDNA.dominantMood}}</text>
+    </view>
+    <view class="dna-row">
+      <text class="dna-label">气味通感：</text>
+      <text class="dna-val">{{vibeData.moodDNA.scentNote}}</text>
+    </view>
+    <view class="dna-row">
+      <text class="dna-label">气候光影：</text>
+      <text class="dna-val">{{vibeData.moodDNA.weatherFeel}}</text>
+    </view>
+  </view>
+
+  <!-- AI 重绘电影海报预览区（Agnes 免费生图） -->
+  <view wx:if="{{aiPosterPath}}" class="ai-poster-panel glass-card">
+    <view class="ai-poster-title-row">
+      <text class="ai-poster-title font-serif">✨ AI 重绘电影海报</text>
+      <text class="ai-poster-badge font-mono">AGNES IMAGE 2.1</text>
+    </view>
+    <image class="ai-poster-image" src="{{aiPosterPath}}" mode="widthFix"></image>
+    <button class="btn-ai-save" bindtap="saveAiPoster">
+      <text>💾 保存 AI 海报到相册</text>
+    </button>
+  </view>
+
+  <!-- 底部吸底操作栏 -->
+  <view class="bottom-action-bar">
+    <button class="btn-secondary copy-btn" bindtap="handleCopySocialCopy">
+      <text>📋 复制文案</text>
+    </button>
+    <button class="btn-ai-redraw" bindtap="handleAiRedraw" disabled="{{isAiGenerating}}">
+      <text>{{isAiGenerating ? '✨ Agnes 重绘中...' : '✨ AI 重绘海报'}}</text>
+    </button>
+    <button class="btn-primary export-btn" bindtap="handleExportPoster">
+      <text>🎬 保存超清海报到相册</text>
+    </button>
+  </view>
+
+</view>

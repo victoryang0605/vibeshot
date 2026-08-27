@@ -1,0 +1,66 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <!-- 顶部视觉标头 -->
+  <view class="hero-section">
+    <view class="badge-gold">
+      <text class="badge-dot">✦</text>
+      <text>AI 视觉情绪美学 · 电影感胶囊</text>
+    </view>
+    <view class="hero-title font-serif">随手拍照片 · 3秒变身电影帧</view>
+    <view class="hero-subtitle">智能提取潘通色标 · 生成王家卫/日系极简台词 · 导出朋友圈海报</view>
+  </view>
+
+  <!-- 核心交互区：拍照 / 选图卡片 -->
+  <view class="upload-card glass-card">
+    <view class="upload-header">
+      <view class="upload-title">
+        <text class="sparkle-icon">✨</text>
+        <text>即刻上传照片</text>
+      </view>
+      <input 
+        class="custom-title-input" 
+        placeholder="画面标题 (选填)" 
+        placeholder-class="placeholder-text" 
+        bindinput="onInputTitle"
+        value="{{photoTitle}}"
+      />
+    </view>
+
+    <!-- 拍摄与相册触发按钮 -->
+    <view class="drop-zone" bindtap="handleChooseMedia">
+      <view class="camera-icon-wrapper">
+        <text class="camera-emoji">📷</text>
+      </view>
+      <view class="drop-main-text">点击拍摄 / 从微信相册选择照片</view>
+      <view class="drop-sub-text">支持任意咖啡、街景、猫咪、雨夜或工作台</view>
+    </view>
+  </view>
+
+  <!-- 精选高格调样片体验区 -->
+  <view class="preset-section">
+    <view class="section-title-row">
+      <text class="section-title">或一键体验精选电影感样片：</text>
+      <text class="section-hint">点击即刻生成</text>
+    </view>
+
+    <view class="preset-grid">
+      <view 
+        class="preset-item" 
+        wx:for="{{presetPhotos}}" 
+        wx:key="id" 
+        bindtap="handleSelectPreset" 
+        data-item="{{item}}"
+      >
+        <image class="preset-image" src="{{item.imageUrl}}" mode="aspectFill" lazy-load></image>
+        <view class="preset-tag font-mono">{{item.tag}}</view>
+        <view class="preset-name">{{item.title}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部微信生态服务说明 -->
+  <view class="footer-tips">
+    <text class="footer-icon">🛡️</text>
+    <text>微信原生无损渲染 · 隐私安全保障</text>
+  </view>
+</view>

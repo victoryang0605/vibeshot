@@ -1,0 +1,38 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/studio/studio",
+    "pages/poster/poster",
+    "pages/pro/pro"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#0c0a09",
+    "navigationBarTitleText": "拾光半格",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#0c0a09"
+  },
+  "tabBar": {
+    "color": "#78716c",
+    "selectedColor": "#fbbf24",
+    "backgroundColor": "#1c1917",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "创作",
+        "iconPath": "images/tab_camera.png",
+        "selectedIconPath": "images/tab_camera_active.png"
+      },
+      {
+        "pagePath": "pages/pro/pro",
+        "text": "商业/VIP",
+        "iconPath": "images/tab_vip.png",
+        "selectedIconPath": "images/tab_vip_active.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

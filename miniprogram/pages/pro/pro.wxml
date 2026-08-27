@@ -1,0 +1,78 @@
+<!-- pages/pro/pro.wxml -->
+<view class="pro-container">
+  <!-- 会员特权卡片 -->
+  <view class="vip-hero-card">
+    <view class="vip-badge-row">
+      <text class="vip-crown">👑</text>
+      <text class="vip-tag font-mono">VIBESHOT BLACK CARD</text>
+    </view>
+    <view class="vip-title font-serif">拾光半格 · Pro 终身尊享</view>
+    <view class="vip-subtitle">解锁无水印超清 300DPI 印刷导出与全套胶片滤镜</view>
+    
+    <view class="vip-privilege-list">
+      <view class="priv-item">
+        <text class="priv-icon">✨</text>
+        <text>永久去除卡片水印与品牌标</text>
+      </view>
+      <view class="priv-item">
+        <text class="priv-icon">🎞️</text>
+        <text>解锁全部 12 款复古胶片调色预设</text>
+      </view>
+      <view class="priv-item">
+        <text class="priv-icon">🖨️</text>
+        <text>支持 CMYK 工业级矢量印刷格式导出</text>
+      </view>
+    </view>
+
+    <view class="price-row">
+      <view class="price-left">
+        <text class="currency">¥</text>
+        <text class="amount">9.9</text>
+        <text class="original">¥29.9</text>
+      </view>
+      <button class="btn-primary buy-btn" bindtap="handleSubscribeVIP">
+        <text>一键开通 Pro 终身版</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- POD 实体文创定制专区 -->
+  <view class="pod-section">
+    <view class="section-title-row">
+      <text class="section-title font-serif">🎁 实体文创周边定制 (POD)</text>
+      <text class="section-badge font-mono">顺丰包邮</text>
+    </view>
+
+    <view class="pod-card-list">
+      <view class="pod-item glass-card" bindtap="handleCustomPOD" data-product="stand">
+        <view class="pod-icon-box">🖼️</view>
+        <view class="pod-info">
+          <view class="pod-name">高透亚克力桌面情绪立牌</view>
+          <view class="pod-desc">双面夹心高透水晶工艺 · 桌面治愈摆件</view>
+          <view class="pod-price">¥29.00 起</view>
+        </view>
+        <button class="btn-secondary mini-order-btn">定制</button>
+      </view>
+
+      <view class="pod-item glass-card" bindtap="handleCustomPOD" data-product="magnet">
+        <view class="pod-icon-box">🧲</view>
+        <view class="pod-info">
+          <view class="pod-name">金属质感情绪磁吸冰箱贴</view>
+          <view class="pod-desc">精工磨砂铁盒包装 · 记录每一段生活色号</view>
+          <view class="pod-price">¥19.90 起</view>
+        </view>
+        <button class="btn-secondary mini-order-btn">定制</button>
+      </view>
+
+      <view class="pod-item glass-card" bindtap="handleCustomPOD" data-product="case">
+        <view class="pod-icon-box">📱</view>
+        <view class="pod-info">
+          <view class="pod-name">透光电影色卡手机壳</view>
+          <view class="pod-desc">全包防摔气囊 · 原色微磨砂手感</view>
+          <view class="pod-price">¥39.00 起</view>
+        </view>
+        <button class="btn-secondary mini-order-btn">定制</button>
+      </view>
+    </view>
+  </view>
+</view>

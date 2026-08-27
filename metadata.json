@@ -1,0 +1,6 @@
+{
+  "name": "拾光半格",
+  "description": "随手拍瞬间变身高级电影帧与情绪色卡拍立得。AI智能提取潘通色号、生成王家卫/日系极简电影台词，一键排版导出高格调社交卡片。",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
