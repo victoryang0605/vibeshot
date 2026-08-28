@@ -11,7 +11,7 @@ Page({
     this.drawPosterCanvas();
   },
 
-  // 使用微信小程序 Canvas 2D 进行像素级海报绘制
+  // 使用微信小程序 Canvas 2D 绘制海报（对齐 studio 拍立得模板样式）
   drawPosterCanvas() {
     wx.showLoading({ title: '海报高精度渲染中...', mask: true });
 
@@ -28,8 +28,9 @@ Page({
         const ctx = canvas.getContext('2d');
 
         const dpr = wx.getSystemInfoSync().pixelRatio || 2;
+        // 画布尺寸：750 宽，按 studio 拍立得（620rpx）等比放大
         const width = 750;
-        const height = 1100;
+        const height = 1260;
 
         canvas.width = width * dpr;
         canvas.height = height * dpr;
@@ -37,15 +38,25 @@ Page({
 
         const vibeData = app.globalData.currentVibeResult;
         const imageUrl = app.globalData.currentImageUrl;
-        const quote = app.globalData.customQuote || vibeData.quotes.wongKarWai.monologue;
-        // 英文文案（与中文台词对应的译文）
+        const quote = app.globalData.customQuote || (vibeData.quotes.wongKarWai && vibeData.quotes.wongKarWai.monologue) || '';
         const quoteEN = app.globalData.customQuoteEN || (vibeData.quotes.wongKarWai && vibeData.quotes.wongKarWai.english) || '';
 
-        // 1. 绘制拍立得暖白底色
-        ctx.fillStyle = '#fbf9f5';
+        // 日期戳（与 studio 的 dateFormatted 同格式）
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+
+        // ===== 布局（对齐 studio 拍立得：卡片 padding 24rpx、照片 1:1 方形）=====
+        const cardPad = 29;          // 卡片内边距
+        const photoSize = 692;       // 照片区 1:1 方形
+        const photoX = cardPad;
+        const photoY = cardPad;
+        const bottomY = photoY + photoSize;
+
+        // 1. 卡片暖白底色（与 studio 一致 #fcfbf9）
+        ctx.fillStyle = '#fcfbf9';
         ctx.fillRect(0, 0, width, height);
 
-        // 2. 绘制照片底图（等比裁剪，不拉伸变形）
+        // 2. 照片（cover 等比裁剪 + 圆角）
         try {
           const img = canvas.createImage();
           img.src = imageUrl;
@@ -54,69 +65,72 @@ Page({
             img.onerror = resolve;
           });
 
-          // 照片区域
-          const photoPadding = 40;
-          const photoW = width - photoPadding * 2;
-          const photoH = 680;
-
-          // cover 模式：等比缩放并居中裁剪，铺满照片窗口
-          const iw = img.width || photoW;
-          const ih = img.height || photoH;
-          const scale = Math.max(photoW / iw, photoH / ih);
+          const iw = img.width || photoSize;
+          const ih = img.height || photoSize;
+          const scale = Math.max(photoSize / iw, photoSize / ih);
           const dw = iw * scale;
           const dh = ih * scale;
-          const dx = photoPadding + (photoW - dw) / 2;
-          const dy = photoPadding + (photoH - dh) / 2;
+          const dx = photoX + (photoSize - dw) / 2;
+          const dy = photoY + (photoSize - dh) / 2;
+
+          ctx.save();
+          this.roundRect(ctx, photoX, photoY, photoSize, photoSize, 8);
+          ctx.clip();
           ctx.drawImage(img, dx, dy, dw, dh);
+          ctx.restore();
 
-          // 3. 绘制右下角胶片时间戳
+          // 3. 日期戳（照片右下角，与 studio 一致：橙字 + 半透明黑底）
+          ctx.fillStyle = 'rgba(0,0,0,0.4)';
+          this.roundRect(ctx, photoX + photoSize - 150, photoY + photoSize - 48, 122, 32, 4);
+          ctx.fill();
           ctx.fillStyle = '#ea580c';
-          ctx.font = 'bold 24px monospace';
-          ctx.fillText('2026.08.25', photoPadding + photoW - 170, photoPadding + photoH - 24);
+          ctx.font = '20px monospace';
+          ctx.fillText(dateStr, photoX + photoSize - 140, photoY + photoSize - 25);
 
-          // 4. 绘制情绪潘通色块
-          let swatchX = photoPadding;
-          const swatchY = photoPadding + photoH + 40;
+          // 4. 情绪潘通色块行（圆点 + hex，与 studio 一致）
+          let swatchX = photoX;
+          const swatchY = bottomY + 32;
           const colors = vibeData.colorPalette || [];
-
           colors.forEach((c) => {
             ctx.fillStyle = c.hex;
             ctx.beginPath();
-            ctx.arc(swatchX + 16, swatchY, 16, 0, Math.PI * 2);
+            ctx.arc(swatchX + 14, swatchY + 14, 14, 0, Math.PI * 2);
             ctx.fill();
-            swatchX += 44;
+            swatchX += 42;
           });
-
-          // 绘制色号文字
           ctx.fillStyle = '#78716c';
           ctx.font = '22px monospace';
-          ctx.fillText(colors[0]?.hex || '#3E2723', swatchX + 10, swatchY + 8);
+          ctx.fillText(colors[0]?.hex || '#3E2723', swatchX + 8, swatchY + 21);
 
-          // 5. 绘制中文诗意台词（多行自动换行，限制长度防止溢出）
-          ctx.fillStyle = '#1c1917';
-          ctx.font = 'bold 26px serif';
-          const cnText = quote.length > 64 ? quote.slice(0, 64) + '…' : quote;
-          const enStartY = this.wrapText(ctx, `“ ${cnText} ”`, photoPadding, swatchY + 70, photoW, 36);
+          // 5. 中文台词（颜色/字体与 studio 一致：serif #292524）
+          ctx.fillStyle = '#292524';
+          ctx.font = 'bold 34px serif';
+          const cnText = (quote || '').length > 60 ? quote.slice(0, 60) + '…' : quote;
+          const cnEndY = this.wrapText(ctx, `“ ${cnText} ”`, photoX, swatchY + 76, photoSize, 56);
 
-          // 5.1 绘制英文译文（斜体，紧跟在中文下方）
+          // 6. 英文译文（与 studio 一致：sans #78716c 斜体）
           if (quoteEN) {
             ctx.fillStyle = '#78716c';
-            ctx.font = 'italic 18px sans-serif';
-            this.wrapText(ctx, quoteEN, photoPadding + 6, enStartY + 30, photoW - 12, 26);
+            ctx.font = 'italic 22px sans-serif';
+            this.wrapText(ctx, quoteEN, photoX + 6, cnEndY + 40, photoSize - 12, 32);
           }
 
-          // 6. 绘制底部条形码和水印
-          ctx.strokeStyle = '#e7e5e4';
+          // 7. 底部虚线分隔 + 条码/品牌水印（与 studio 一致）
+          const footerLineY = height - 86;
+          const footerTextY = height - 52;
+          ctx.strokeStyle = '#d6d3d1';
           ctx.lineWidth = 2;
+          ctx.setLineDash([6, 6]);
           ctx.beginPath();
-          ctx.moveTo(photoPadding, height - 70);
-          ctx.lineTo(width - photoPadding, height - 70);
+          ctx.moveTo(photoX, footerLineY);
+          ctx.lineTo(photoX + photoSize, footerLineY);
           ctx.stroke();
+          ctx.setLineDash([]);
 
           ctx.fillStyle = '#a8a29e';
           ctx.font = '20px monospace';
-          ctx.fillText('||||| ||| ||||||| 0.01cm', photoPadding, height - 36);
-          ctx.fillText('EMOTION CODE · VIBESHOT', width - photoPadding - 280, height - 36);
+          ctx.fillText('||||| ||| ||||||| 0.01cm', photoX, footerTextY);
+          ctx.fillText('EMOTION CODE · VIBESHOT', width - photoX - 260, footerTextY);
 
           // 导出为临时图片路径
           wx.canvasToTempFilePath({
@@ -144,6 +158,17 @@ Page({
           wx.hideLoading();
         }
       });
+  },
+
+  // 圆角矩形路径
+  roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   },
 
   // Canvas 文本换行工具（返回最后一行结束的 y 坐标）
