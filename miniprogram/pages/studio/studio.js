@@ -106,6 +106,8 @@ Page({
     app.globalData.selectedTemplate = this.data.currentTemplate;
     app.globalData.selectedFilter = this.data.currentFilter;
     app.globalData.customQuote = this.data.currentQuoteText;
+    // 同步传英文译文（用于海报 Canvas 绘制）
+    app.globalData.customQuoteEN = this.data.currentSubText;
 
     wx.navigateTo({
       url: '/pages/poster/poster'

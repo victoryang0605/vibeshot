@@ -38,12 +38,14 @@ Page({
         const vibeData = app.globalData.currentVibeResult;
         const imageUrl = app.globalData.currentImageUrl;
         const quote = app.globalData.customQuote || vibeData.quotes.wongKarWai.monologue;
+        // 英文文案（与中文台词对应的译文）
+        const quoteEN = app.globalData.customQuoteEN || (vibeData.quotes.wongKarWai && vibeData.quotes.wongKarWai.english) || '';
 
         // 1. 绘制拍立得暖白底色
         ctx.fillStyle = '#fbf9f5';
         ctx.fillRect(0, 0, width, height);
 
-        // 2. 绘制照片底图
+        // 2. 绘制照片底图（等比裁剪，不拉伸变形）
         try {
           const img = canvas.createImage();
           img.src = imageUrl;
@@ -57,7 +59,15 @@ Page({
           const photoW = width - photoPadding * 2;
           const photoH = 680;
 
-          ctx.drawImage(img, photoPadding, photoPadding, photoW, photoH);
+          // cover 模式：等比缩放并居中裁剪，铺满照片窗口
+          const iw = img.width || photoW;
+          const ih = img.height || photoH;
+          const scale = Math.max(photoW / iw, photoH / ih);
+          const dw = iw * scale;
+          const dh = ih * scale;
+          const dx = photoPadding + (photoW - dw) / 2;
+          const dy = photoPadding + (photoH - dh) / 2;
+          ctx.drawImage(img, dx, dy, dw, dh);
 
           // 3. 绘制右下角胶片时间戳
           ctx.fillStyle = '#ea580c';
@@ -82,10 +92,18 @@ Page({
           ctx.font = '22px monospace';
           ctx.fillText(colors[0]?.hex || '#3E2723', swatchX + 10, swatchY + 8);
 
-          // 5. 绘制中文诗意台词（多行自动换行）
+          // 5. 绘制中文诗意台词（多行自动换行，限制长度防止溢出）
           ctx.fillStyle = '#1c1917';
-          ctx.font = 'bold 30px serif';
-          this.wrapText(ctx, `“ ${quote} ”`, photoPadding, swatchY + 70, photoW, 44);
+          ctx.font = 'bold 26px serif';
+          const cnText = quote.length > 64 ? quote.slice(0, 64) + '…' : quote;
+          const enStartY = this.wrapText(ctx, `“ ${cnText} ”`, photoPadding, swatchY + 70, photoW, 36);
+
+          // 5.1 绘制英文译文（斜体，紧跟在中文下方）
+          if (quoteEN) {
+            ctx.fillStyle = '#78716c';
+            ctx.font = 'italic 18px sans-serif';
+            this.wrapText(ctx, quoteEN, photoPadding + 6, enStartY + 30, photoW - 12, 26);
+          }
 
           // 6. 绘制底部条形码和水印
           ctx.strokeStyle = '#e7e5e4';
@@ -128,7 +146,7 @@ Page({
       });
   },
 
-  // Canvas 文本换行工具
+  // Canvas 文本换行工具（返回最后一行结束的 y 坐标）
   wrapText(ctx, text, x, y, maxWidth, lineHeight) {
     const chars = text.split('');
     let line = '';
@@ -145,6 +163,7 @@ Page({
       }
     }
     ctx.fillText(line, x, y);
+    return y;
   },
 
   // 保存到手机本地系统相册 (wx.saveImageToPhotosAlbum)
