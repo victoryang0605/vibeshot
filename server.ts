@@ -123,6 +123,18 @@ const AGNES_API_KEY = process.env.AGNES_API_KEY || '';
 const AGNES_VISION_MODEL = process.env.AGNES_VISION_MODEL || 'agnes-2.5-flash';
 const AGNES_IMAGE_MODEL = process.env.AGNES_IMAGE_MODEL || 'agnes-image-2.1-flash';
 
+// ============================================================
+// DeepSeek 视觉模型（deepseek-v4-flash-vision-exp，OpenAI 兼容）
+// ------------------------------------------------------------
+// Base URL: https://api.deepseek.com （国内直连）
+// 识图供应商切换：AI_VISION_PROVIDER = deepseek | agnes
+// 配了 DEEPSEEK_API_KEY 时默认优先 DeepSeek；生图仍用 Agnes
+// ============================================================
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
+const DEEPSEEK_BASE_URL = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/+$/, '');
+const DEEPSEEK_VISION_MODEL = process.env.DEEPSEEK_VISION_MODEL || 'deepseek-v4-flash-vision-exp';
+const AI_VISION_PROVIDER = process.env.AI_VISION_PROVIDER || (DEEPSEEK_API_KEY ? 'deepseek' : 'agnes');
+
 function agnesHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (AGNES_API_KEY) headers['Authorization'] = `Bearer ${AGNES_API_KEY}`;
@@ -161,6 +173,42 @@ async function agnesFetch(apiPath: string, body: unknown, timeoutMs = 120000): P
     await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
   }
   throw lastErr || new Error('Agnes API 请求失败');
+}
+
+// DeepSeek 官方 API 请求封装（OpenAI 兼容 chat/completions，对 429/5xx 指数退避重试）
+async function deepseekFetch(body: unknown, timeoutMs = 180000): Promise<any> {
+  const url = `${DEEPSEEK_BASE_URL}/chat/completions`;
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) return data;
+      const err: any = new Error(`DeepSeek API ${res.status}: ${JSON.stringify(data).slice(0, 500)}`);
+      // 4xx（除 429 限流）为确定性错误，不重试
+      if (res.status !== 429 && res.status < 500) err.fatal = true;
+      throw err;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw new Error(`DeepSeek API 请求超时（${timeoutMs}ms）`);
+      if (err?.fatal) throw err;
+      lastErr = err;
+    } finally {
+      clearTimeout(timer);
+    }
+    await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
+  }
+  throw lastErr || new Error('DeepSeek API 请求失败');
 }
 
 // 从模型输出中稳健提取 JSON（容忍 ```json 围栏与前后缀文本）
@@ -429,47 +477,74 @@ async function startServer() {
   };
 
   // 照片识图分析：照片 + 提示词 -> 结构化 JSON（情绪色号 / 台词 / 情绪DNA）
+  // 识图供应商：AI_VISION_PROVIDER=deepseek 用 DeepSeek V4 Vision（配 key 时默认优先），
+  // 失败自动回退 Agnes；生图（generate-image）始终用 Agnes。
   app.post('/api/vibeshot/analyze', async (req, res) => {
     recordAiUsage(req); // 记录一次 AI 调用（带 token 关联用户）
     const { imageBase64, mimeType, photoTitle, stylePreference } = req.body;
 
-    if (!AGNES_API_KEY) {
-      console.warn('AGNES_API_KEY is not set in environment, using local fallback.');
+    const useDeepseek = AI_VISION_PROVIDER === 'deepseek' && !!DEEPSEEK_API_KEY;
+    if (!useDeepseek && !AGNES_API_KEY) {
+      console.warn('AI 识图 Key 未配置，使用本地兜底数据。');
       return res.json(generateFallbackVibe());
     }
 
-    try {
-      const promptText = PROMPT_TEMPLATE
-        .replace('{{photoTitle}}', photoTitle || '随手拍日常')
-        .replace('{{stylePreference}}', stylePreference || 'all');
+    const promptText = PROMPT_TEMPLATE
+      .replace('{{photoTitle}}', photoTitle || '随手拍日常')
+      .replace('{{stylePreference}}', stylePreference || 'all');
 
-      // Agnes 2.5 Flash 识图（OpenAI 兼容 content blocks，图片支持 Data URI Base64）
-      const parts: any[] = [];
-      if (imageBase64) {
-        parts.push({ type: 'image_url', image_url: { url: toDataUri(imageBase64, mimeType) } });
-      }
-      parts.push({ type: 'text', text: promptText });
-
-      const data = await agnesFetch('/chat/completions', {
-        model: AGNES_VISION_MODEL,
-        messages: [{ role: 'user', content: parts }],
-        temperature: 1.0,
-        max_tokens: 8192,
-      }, 180000);
-
-      const rawText = data?.choices?.[0]?.message?.content;
-      if (!rawText) throw new Error('Agnes 识图未返回内容');
-
-      const parsed = extractJson(rawText);
-      res.json({
-        id: String(Date.now()),
-        timestamp: Date.now(),
-        ...parsed,
-      });
-    } catch (err: any) {
-      console.error('Agnes Vision analysis error:', err);
-      res.json(generateFallbackVibe());
+    // OpenAI 兼容 content blocks：图片 + 文本
+    const parts: any[] = [];
+    if (imageBase64) {
+      parts.push({ type: 'image_url', image_url: { url: toDataUri(imageBase64, mimeType) } });
     }
+    parts.push({ type: 'text', text: promptText });
+
+    // 1) DeepSeek 视觉模型（deepseek-v4-flash-vision-exp）
+    if (useDeepseek) {
+      try {
+        const data = await deepseekFetch({
+          model: DEEPSEEK_VISION_MODEL,
+          messages: [{ role: 'user', content: parts }],
+          temperature: 1.0,
+          max_tokens: 8192,
+        });
+        const rawText = data?.choices?.[0]?.message?.content;
+        if (!rawText) throw new Error('DeepSeek 识图未返回内容');
+        const parsed = extractJson(rawText);
+        return res.json({ id: String(Date.now()), timestamp: Date.now(), ...parsed });
+      } catch (err: any) {
+        console.error('DeepSeek Vision analysis error:', err);
+        if (!AGNES_API_KEY) return res.json(generateFallbackVibe());
+        console.warn('DeepSeek 识图失败，回退 Agnes...');
+      }
+    }
+
+    // 2) Agnes 识图（agnes-2.5-flash）
+    if (AGNES_API_KEY) {
+      try {
+        const data = await agnesFetch('/chat/completions', {
+          model: AGNES_VISION_MODEL,
+          messages: [{ role: 'user', content: parts }],
+          temperature: 1.0,
+          max_tokens: 8192,
+        }, 180000);
+
+        const rawText = data?.choices?.[0]?.message?.content;
+        if (!rawText) throw new Error('Agnes 识图未返回内容');
+
+        const parsed = extractJson(rawText);
+        return res.json({
+          id: String(Date.now()),
+          timestamp: Date.now(),
+          ...parsed,
+        });
+      } catch (err: any) {
+        console.error('Agnes Vision analysis error:', err);
+      }
+    }
+
+    res.json(generateFallbackVibe());
   });
 
   // ============================================================
