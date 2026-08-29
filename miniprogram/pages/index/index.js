@@ -56,10 +56,32 @@ Page({
     });
   },
 
-  // 选择预设样片
+  // 选择预设样片（本地包内图：读成真正 base64 再传给后端识图，避免路径被当图片数据导致 500）
   handleSelectPreset(e) {
     const item = e.currentTarget.dataset.item;
-    this.runAnalyze(item.imageUrl, item.imageUrl, item.title);
+    const isPackageImage = item.imageUrl && item.imageUrl.indexOf('/') === 0;
+
+    if (isPackageImage) {
+      const fs = wx.getFileSystemManager();
+      fs.readFile({
+        filePath: item.imageUrl,
+        encoding: 'base64',
+        success: (data) => {
+          // 根据扩展名确定 mime（当前预设均为 jpg，兼容 png/webp）
+          const ext = (item.imageUrl.split('.').pop() || 'jpg').toLowerCase();
+          const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          const base64Str = `data:${mime};base64,` + data.data;
+          this.runAnalyze(base64Str, item.imageUrl, item.title);
+        },
+        fail: () => {
+          // 读取失败降级：直接传路径（后端会走兜底数据）
+          this.runAnalyze(item.imageUrl, item.imageUrl, item.title);
+        }
+      });
+    } else {
+      // 公网 URL（历史兼容）
+      this.runAnalyze(item.imageUrl, item.imageUrl, item.title);
+    }
   },
 
   async runAnalyze(imageBase64, displayUrl, title) {
